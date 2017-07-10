@@ -10,7 +10,6 @@
 #include <string>
 #include <algorithm>
 #include <cctype>
-#include "ExplFuncDef.h"
 
 using std::string;
 using std::vector;
@@ -55,6 +54,7 @@ const STR status[]={
 	"Downloading",	//1
 	"Uploading",	//2
 	"Waiting",		//3
+	"Help",			//4
 };
 enum Status{Brs, Dwld, Upld, Wait, Help, Cpy, Cut}sta= Brs;
 const STR option[]={	//visit		http://www.th7.cn/Program/cp/2011/12/07/49528.shtml		for file operations
@@ -76,11 +76,13 @@ vector<_INFO>::iterator _idx, _cursor;
 int folderCnt= 0, fileCnt= 0, itemCnt= 0;
 char key;
 
-extern COORD CursorPos;	//To display the cursor for user
-extern HANDLE hOut;
-extern CONSOLE_CURSOR_INFO CursorInfo;
+
+COORD cursorPos;	//To display the cursor for user
+HANDLE hOut;
+CONSOLE_CURSOR_INFO cursorInfo;
 const short CursorSt= 3;
 short CursorEnd= CursorSt+itemCnt;
+const char Arrow[4]= "->";
 
 
 //////////Others//////////
@@ -89,15 +91,27 @@ bool findlevel(const char * Path);
 //////////////////////////
 
 //////////Display Information//////////
+void ResetPageView(bool Direction, short bottomPosition= CursorEnd)
+{
+	SHORT tmpX= cursorPos.X;
+	cursorPos.X= 50;
+	if (Direction)
+		cursorPos.Y= bottomPosition+3;
+	else
+		cursorPos.Y= 0;
+	SetConsoleCursorPosition(hOut, cursorPos);
+	printf(" ");
+	cursorPos.X= tmpX;
+}
 void DispSta(short idx)	//Display status
 {
-	printf("[Info]  Status: %s\n\n", status[idx].c_str());
+	printf("Current state: %s\n\n", status[idx].c_str());
 }
 void DispPath(const STR & file_name= "\0", const bool &isFolder= 1)
 {
 	if (Path[Path.length()-1]=='*')
 		Path[Path.length()-1]= '\0';
-	printf("[Path]  ");
+	//printf("[Path]  ");
 	std::cout<<Path+file_name;
 	if (!isFolder)
 		printf("\b ");
@@ -124,7 +138,7 @@ void DispMenu()
 	_opt= 0;
 	
 	for (short i= 0; i<Optnum; i++){
-		printf("\t[Option]  %s", option[i].c_str());
+		printf("    [Option]  %s", option[i].c_str());
 		if (emptyFolder && i<5)
 			printf("\t(Unusable)");
 		else if(i==5)
@@ -136,17 +150,17 @@ void DispMenu()
 	}
 	
 	/*LEVEL_TEST();*/
-	CursorPos.X= 0;
-	CursorPos.Y= CursorSt;
-	SetConsoleCursorPosition(hOut, CursorPos);
-	printf("->");
+	cursorPos.X= 0;
+	cursorPos.Y= CursorSt;
+	SetConsoleCursorPosition(hOut, cursorPos);
+	printf(Arrow);
 }
 void DispHelp()
 {
 	CLR();
 	DispSta(sta= Help);
 	level++;
-	DispPath();
+	//DispPath();
 	printf("[Note]  Press M to display menu.\n\
 [Note]  Press G to input and enter a path.\n\
 [Note]  Press arrow key up or down to move the cursor.\n\
@@ -177,7 +191,6 @@ void Search()	//Search items in this folder
 	//Core of the whole function
 	strcpy(tempPath, Path.c_str());
 	strcat(tempPath, format);
-	Disp(tempPath);
 	if ((handle= _findfirst(tempPath, &tmp)) != -1){
 		do{
 			if (strcmp(tmp.name, ".")==0 || strcmp(tmp.name, "..")==0)
@@ -204,7 +217,7 @@ void Disp()		//Display items of this folder
 	DispPath();
 	
 	for (_idx= iteminfo.begin(); _idx<iteminfo.end(); _idx++){
-		Disp("\t[");
+		Disp("    [");
 		if (_idx->attrib & _A_HIDDEN)
 			Disp("Hidden ");
 		if (_idx->attrib & _A_SUBDIR)
@@ -212,23 +225,41 @@ void Disp()		//Display items of this folder
 		else
 			Disp("File]  "), Disp(_idx->name.c_str()), Disp("\n");
 	}
-	Disp("[End]\n\n");
+	if (!emptyFolder)
+		Disp("\n[End]\n");
 	
 	if (emptyFolder){
 		Disp("[Info]  No item\n\n");
 		return;}
-	else if (folderCnt == 0)
-		Disp("[Info]  No folder, "), Disp(fileCnt), Disp(" files total.\n\n");
-	else if (fileCnt == 0)
-		Disp("[Info]  "), Disp(folderCnt), Disp(" folders total, no file.\n\n");
-	else
-		Disp("[Info]  "), Disp(folderCnt), Disp(" folders, "), Disp(fileCnt), Disp(" files total.\n\n");
+	else if (folderCnt == 0){
+		Disp("[Info]  No folder, "), Disp(fileCnt), Disp(" file");
+		if (fileCnt>1)
+			Disp("s");
+		Disp(" total.\n\n");
+	}
+	else if (fileCnt == 0){
+		Disp("[Info]  "), Disp(folderCnt), Disp(" folder");
+		if (folderCnt>1)
+			Disp("s");
+		Disp(" total, no file.\n\n");
+	}
+	else{
+		Disp("[Info]  "), Disp(folderCnt), Disp(" folder");
+		if (folderCnt>1)
+			Disp("s");
+		Disp(", "), Disp(fileCnt), Disp(" file");
+		if (fileCnt>1)
+			Disp("s");
+		Disp(" total.\n\n");
+	}
 		
 	/*LEVEL_TEST();*/
-	CursorPos.X= 0;
-	CursorPos.Y= CursorSt;
-	SetConsoleCursorPosition(hOut, CursorPos);
-	printf("->");
+	ResetPageView(0);
+	
+	cursorPos.X= 0;
+	cursorPos.Y= CursorSt;
+	SetConsoleCursorPosition(hOut, cursorPos);
+	printf(Arrow);
 }
 
 void ShortPath(STR & Path)
@@ -266,8 +297,8 @@ void Back()		//Go back to parent folder
 
 void Goto()
 {
-	CursorInfo.bVisible= 1;
-	SetConsoleCursorInfo(hOut, &CursorInfo);
+	cursorInfo.bVisible= 1;
+	SetConsoleCursorInfo(hOut, &cursorInfo);
 	
 	string tmp;
 	CLR();
@@ -277,8 +308,8 @@ void Goto()
 	std::cin>>tmp;
 	getchar();
 	
-	CursorInfo.bVisible= 0;
-	SetConsoleCursorInfo(hOut, &CursorInfo);
+	cursorInfo.bVisible= 0;
+	SetConsoleCursorInfo(hOut, &cursorInfo);
 	
 	if (tmp[0]=='0'){
 		Disp();
@@ -300,7 +331,7 @@ void Goto()
 	Disp();
 }
 
-void MoveCursor(bool Direction, bool isMenuCursor= 0)	//1 for Up, 0 for Down
+void MoveCursor(bool Direction, bool isMenuCursor= 0)	//Direction: 1 for Up, 0 for Down
 {
 	printf("\b\b  ");
 	int _CursorEnd;
@@ -309,18 +340,23 @@ void MoveCursor(bool Direction, bool isMenuCursor= 0)	//1 for Up, 0 for Down
 	else
 		_CursorEnd= CursorEnd;
 	if (Direction==1)
-		if (CursorPos.Y==CursorSt)
-			CursorPos.Y= _CursorEnd-1;
+		if (cursorPos.Y==CursorSt){
+			ResetPageView(1);
+			cursorPos.Y= _CursorEnd-1;
+		}
 		else
-			CursorPos.Y--;
+			cursorPos.Y--;
 	
 	else{
-		CursorPos.Y++;
-		if (CursorPos.Y==_CursorEnd)
-			CursorPos.Y= CursorSt;
+		cursorPos.Y++;
+		if (cursorPos.Y==_CursorEnd){
+				if (isMenuCursor)
+					ResetPageView(0, _CursorEnd);
+			cursorPos.Y= CursorSt;
+		}
 	}
 	
-	SetConsoleCursorPosition(hOut, CursorPos);
+	SetConsoleCursorPosition(hOut, cursorPos);
 	printf("->");
 }
 
@@ -471,15 +507,20 @@ bool _Paste()
 	while (1){
 		if (ch=='Y' || ch=='y'/* || ch==13Enter Key*/){
 			STR tmp= Path+TmpSuffix;
+			if (tmp==Tmp)
+				return 1;
 			CLR();
-			
-			if (fopen(tmp.c_str(), "r")>0){		//Object file exists
+			FILE* pf;
+			pf= fopen(tmp.c_str(), "r");
+			if (pf>0){		//Object file exists
+				fclose(pf);
 				Disp("[Info]  There is a file has the same name.\nContinue?[Y/N]\n");
 				ch= getch();
 				while (1)
 					if (ch=='Y' || ch=='y'){
-						if (!DeleteFile(tmp.c_str())){	//?????
+						if (!DeleteFile(tmp.c_str())){
 							CLR(), Disp("Operation failed."), Sleep(1000);
+							DWORD err= GetLastError();
 							return 0;
 						}
 						break;
