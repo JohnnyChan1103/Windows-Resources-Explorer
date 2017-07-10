@@ -226,7 +226,7 @@ void Disp()		//Display items of this folder
 			Disp("File]  "), Disp(_idx->name.c_str()), Disp("\n");
 	}
 	if (!emptyFolder)
-		Disp("\n[End]\n");
+		Disp("[End]\n");
 	
 	if (emptyFolder){
 		Disp("[Info]  No item\n\n");
